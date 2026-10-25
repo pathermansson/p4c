@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Charging costs</title>
+<style>
+  :root{
+    --bg:#f6f7f9; --card:#fff; --text:#16202a; --muted:#6a7683; --line:#e3e7ec;
+    --spot:#2f6fdb; --grid:#1f9d8a; --tax:#e0953a; --markup:#8a63d2; --vat:#9aa5b1;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{ --bg:#0f1418; --card:#171e24; --text:#e8edf2; --muted:#8c98a5; --line:#26303a;
+      --spot:#6a9cf2; --grid:#4cc3af; --tax:#f0b061; --markup:#b192ec; --vat:#7b8794; }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font:15px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  main{max-width:980px;margin:0 auto;padding:20px 16px 48px}
+  h1{font-size:22px;margin:0 0 2px}
+  .sub{color:var(--muted);font-size:13px;margin-bottom:18px}
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:16px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+  .kpi .label{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.04em}
+  .kpi .value{font-size:26px;font-weight:650;margin-top:2px}
+  .kpi .note{color:var(--muted);font-size:12px}
+  h2{font-size:15px;margin:0 0 10px}
+  .legend{display:flex;flex-wrap:wrap;gap:12px;font-size:12px;color:var(--muted);margin-bottom:6px}
+  .legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px}
+  svg{width:100%;height:auto;display:block}
+  svg text{fill:var(--muted);font-size:11px}
+  table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+  th,td{padding:7px 8px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
+  th:first-child,td:first-child{text-align:left}
+  th{color:var(--muted);font-weight:500;font-size:12px}
+  .scroll{overflow-x:auto}
+  .tip{position:fixed;pointer-events:none;background:var(--card);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:12px;box-shadow:0 4px 14px rgba(0,0,0,.15);display:none;z-index:5}
+  .warn{color:#c0392b;font-size:12px;margin-top:6px}
+  .card + .card{margin-top:16px}
+</style>
+</head>
+<body>
+<main>
+  <h1>Car charging costs</h1>
+  <div class="sub" id="sub">Loading…</div>
+  <div class="kpis" id="kpis"></div>
+
+  <div class="card">
+    <h2>Cost per month (SEK, incl. VAT)</h2>
+    <div class="legend">
+      <span><i style="background:var(--spot)"></i>Spot price</span>
+      <span><i style="background:var(--markup)"></i>Supplier markup</span>
+      <span><i style="background:var(--grid)"></i>Grid fee</span>
+      <span><i style="background:var(--tax)"></i>Energy tax</span>
+      <span><i style="background:var(--vat)"></i>VAT</span>
+    </div>
+    <div id="chart"></div>
+  </div>
+
+  <div class="card">
+    <h2>Monthly summary</h2>
+    <div class="scroll"><table id="months"></table></div>
+    <div class="warn" id="warn"></div>
+  </div>
+
+  <div class="card">
+    <h2>Latest sessions</h2>
+    <div class="scroll"><table id="sessions"></table></div>
+  </div>
+</main>
+<div class="tip" id="tip"></div>
+
+<script>
+const fmt = (n, d=0) => n.toLocaleString("sv-SE", {minimumFractionDigits:d, maximumFractionDigits:d});
+const sek = n => fmt(n, 0) + " kr";
+const COMP = [["spot","--spot","Spot"],["markup","--markup","Markup"],["grid","--grid","Grid fee"],["tax","--tax","Energy tax"],["vat","--vat","VAT"]];
+const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+
+fetch("data.json?" + Date.now()).then(r => r.json()).then(render).catch(e => {
+  document.getElementById("sub").textContent = "Could not load data.json — " + e;
+});
+
+function render(d){
+  const months = d.months;
+  const gen = new Date(d.generated);
+  document.getElementById("sub").textContent =
+    `Price area ${d.price_area} · updated ${gen.toLocaleString("sv-SE",{dateStyle:"medium",timeStyle:"short"})}`;
+
+  const nowKey = new Date().toISOString().slice(0,7);
+  const cur = months.find(m => m.month === nowKey) || {total:0,kwh:0,sessions:0,avg_sek_per_kwh:0};
+  const prev = months[months.length - (months.at(-1)?.month === nowKey ? 2 : 1)];
+  const year = months.filter(m => m.month.slice(0,4) === nowKey.slice(0,4));
+  const yTot = year.reduce((a,m)=>a+m.total,0), yKwh = year.reduce((a,m)=>a+m.kwh,0);
+  const kp = [
+    ["This month", sek(cur.total), `${fmt(cur.kwh,1)} kWh · ${cur.sessions} sessions`],
+    ["Last month", prev ? sek(prev.total) : "–", prev ? `${fmt(prev.kwh,1)} kWh` : ""],
+    ["Avg price this month", cur.kwh ? fmt(cur.avg_sek_per_kwh,2)+" kr/kWh" : "–", "all-in, incl. VAT"],
+    ["Year to date", sek(yTot), yKwh ? `${fmt(yKwh)} kWh · ${fmt(yTot/yKwh,2)} kr/kWh` : ""],
+  ];
+  document.getElementById("kpis").innerHTML = kp.map(([l,v,n]) =>
+    `<div class="card kpi"><div class="label">${l}</div><div class="value">${v}</div><div class="note">${n}</div></div>`).join("");
+
+  chart(months);
+
+  const rows = [...months].reverse();
+  document.getElementById("months").innerHTML =
+    `<tr><th>Month</th><th>kWh</th><th>Sessions</th><th>kr/kWh</th><th>Total</th></tr>` +
+    rows.map(m => `<tr><td>${m.month}</td><td>${fmt(m.kwh,1)}</td><td>${m.sessions}</td><td>${fmt(m.avg_sek_per_kwh,2)}</td><td><b>${sek(m.total)}</b></td></tr>`).join("");
+  const un = months.reduce((a,m)=>a+(m.unpriced_kwh||0),0);
+  if (un > 0.05) document.getElementById("warn").textContent =
+    `${fmt(un,1)} kWh had no spot price available and is not included in the costs.`;
+
+  document.getElementById("sessions").innerHTML =
+    `<tr><th>Start</th><th>kWh</th><th>kr/kWh</th><th>Cost</th></tr>` +
+    d.sessions.slice(0,15).map(s => `<tr><td>${s.start.replace("T"," ").slice(0,16)}</td><td>${fmt(s.kwh,1)}</td><td>${s.kwh?fmt(s.total/s.kwh,2):"–"}</td><td>${fmt(s.total,2)} kr</td></tr>`).join("");
+}
+
+function chart(months){
+  const W=900,H=300,L=44,R=10,T=10,B=28;
+  const max = Math.max(1,...months.map(m=>m.total))*1.08;
+  const bw = (W-L-R)/months.length;
+  const y = v => T + (H-T-B)*(1 - v/max);
+  let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Monthly charging cost, stacked by component">`;
+  const step = niceStep(max/4);
+  for(let v=0; v<=max; v+=step) s += `<line x1="${L}" x2="${W-R}" y1="${y(v)}" y2="${y(v)}" stroke="${css('--line')}"/><text x="${L-6}" y="${y(v)+4}" text-anchor="end">${fmt(v)}</text>`;
+  months.forEach((m,i)=>{
+    let acc=0; const x=L+i*bw+bw*0.15, w=bw*0.7;
+    COMP.forEach(([k,v])=>{
+      const val = Math.max(0,m[k]); if(!val) return;
+      s += `<rect data-i="${i}" x="${x}" y="${y(acc+val)}" width="${w}" height="${y(acc)-y(acc+val)}" fill="${css(v)}"/>`;
+      acc += val;
+    });
+    s += `<text x="${x+w/2}" y="${H-8}" text-anchor="middle">${m.month.slice(2)}</text>`;
+  });
+  s += `</svg>`;
+  const el = document.getElementById("chart"); el.innerHTML = s;
+  const tip = document.getElementById("tip");
+  el.querySelectorAll("rect").forEach(r => {
+    r.addEventListener("mousemove", e => {
+      const m = months[+r.dataset.i];
+      tip.style.display="block"; tip.style.left=(e.clientX+12)+"px"; tip.style.top=(e.clientY+12)+"px";
+      tip.innerHTML = `<b>${m.month}</b> — ${sek(m.total)} · ${fmt(m.kwh,1)} kWh<br>` +
+        COMP.map(([k,v,n]) => `<span style="color:${css(v)}">■</span> ${n}: ${fmt(m[k],0)} kr`).join("<br>");
+    });
+    r.addEventListener("mouseleave", () => tip.style.display="none");
+  });
+}
+function niceStep(x){ const p=Math.pow(10,Math.floor(Math.log10(x))); const f=x/p; return (f<=1?1:f<=2?2:f<=5?5:10)*p; }
+window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => location.reload());
+</script>
+</body>
+</html>
