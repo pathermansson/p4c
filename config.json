@@ -2,10 +2,10 @@
   "_comment": "Prices below are PLACEHOLDERS. Fill in the real values from your electricity and grid invoices. All amounts in öre/kWh EXCLUDING VAT unless noted.",
   "price_area": "SE3",
   "vat_rate": 0.25,
-  "supplier_markup_ore": 5.0,
+  "supplier_markup_ore": 17.9,
   "grid_fee_energy_ore": {
-    "day": 30.0,
-    "night": 30.0,
+    "day": 7.0,
+    "night": 7.0,
     "day_hours": [6, 22]
   },
   "energy_tax_ore": 36.0,
