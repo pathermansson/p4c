@@ -23,8 +23,8 @@ ZAPTEC = "https://api.zaptec.com"
 
 # ---------- HTTP helpers ----------
 def http(url, data=None, headers=None, retries=3):
-    req = urllib.request.Request(url, data=data, headers=headers or {})
-    for i in range(retries):
+       headers = {"User-Agent": "Mozilla/5.0 (compatible; zaptec-cost-dashboard)", **(headers or {})}
+       req = urllib.request.Request(url, data=data, headers=headers)    for i in range(retries):
         try:
             with urllib.request.urlopen(req, timeout=60) as r:
                 return json.loads(r.read().decode())
