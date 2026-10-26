@@ -66,9 +66,9 @@ def fetch_sessions(token):
         chargers = zget("/api/chargers", token)["Data"]
         if not chargers:
             sys.exit("No chargers visible to this account")
-           for c in chargers:
-               print("CHARGER:", c.get("Name"), "| serial:", c.get("DeviceId"), "| id:", c.get("Id"))
-              charger = chargers[0]["Id"]
+        for c in chargers:
+            print("CHARGER:", c.get("Name"), "| serial:", c.get("DeviceId"), "| id:", c.get("Id"))
+        charger = chargers[0]["Id"]
         if len(chargers) > 1:
             print(f"Multiple chargers found, using {chargers[0].get('Name')} ({charger}). "
                   f"Set charger_id in config.json to choose.")
@@ -83,7 +83,6 @@ def fetch_sessions(token):
         if page >= (r.get("Pages") or 1):
             break
     return sessions
-
 
 def energy_segments(s):
     """Return [(start_utc, end_utc, kwh)] for a session.
