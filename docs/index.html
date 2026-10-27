@@ -7,11 +7,11 @@
 <style>
   :root{
     --bg:#f6f7f9; --card:#fff; --text:#16202a; --muted:#6a7683; --line:#e3e7ec;
-    --spot:#2f6fdb; --grid:#1f9d8a; --tax:#e0953a; --markup:#8a63d2; --vat:#9aa5b1;
+    --line-avg:#d6336c; --spot:#2f6fdb; --grid:#1f9d8a; --tax:#e0953a; --markup:#8a63d2; --vat:#9aa5b1;
   }
   @media (prefers-color-scheme: dark){
     :root{ --bg:#0f1418; --card:#171e24; --text:#e8edf2; --muted:#8c98a5; --line:#26303a;
-      --spot:#6a9cf2; --grid:#4cc3af; --tax:#f0b061; --markup:#b192ec; --vat:#7b8794; }
+      --line-avg:#ff6b9a; --spot:#6a9cf2; --grid:#4cc3af; --tax:#f0b061; --markup:#b192ec; --vat:#7b8794; }
   }
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg);color:var(--text);font:15px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
@@ -45,13 +45,14 @@
   <div class="kpis" id="kpis"></div>
 
   <div class="card">
-    <h2>Cost per month (SEK, incl. VAT)</h2>
+    <h2>Cost per month (SEK, incl. VAT) and average price per kWh</h2>
     <div class="legend">
       <span><i style="background:var(--spot)"></i>Spot price</span>
       <span><i style="background:var(--markup)"></i>Supplier markup</span>
       <span><i style="background:var(--grid)"></i>Grid fee</span>
       <span><i style="background:var(--tax)"></i>Energy tax</span>
       <span><i style="background:var(--vat)"></i>VAT</span>
+      <span><i style="background:var(--line-avg);height:3px;vertical-align:middle"></i>Avg price per kWh (right axis)</span>
     </div>
     <div id="chart"></div>
   </div>
@@ -115,13 +116,18 @@ function render(d){
 }
 
 function chart(months){
-  const W=900,H=300,L=44,R=10,T=10,B=28;
+  const W=900,H=300,L=44,R=48,T=10,B=28;
   const max = Math.max(1,...months.map(m=>m.total))*1.08;
   const bw = (W-L-R)/months.length;
   const y = v => T + (H-T-B)*(1 - v/max);
   let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Monthly charging cost, stacked by component">`;
   const step = niceStep(max/4);
   for(let v=0; v<=max; v+=step) s += `<line x1="${L}" x2="${W-R}" y1="${y(v)}" y2="${y(v)}" stroke="${css('--line')}"/><text x="${L-6}" y="${y(v)+4}" text-anchor="end">${fmt(v)}</text>`;
+  const maxP = Math.max(0.5,...months.map(m=>m.avg_sek_per_kwh))*1.15;
+  const yp = v => T + (H-T-B)*(1 - v/maxP);
+  const pStep = niceStep(maxP/4);
+  for(let v=0; v<=maxP; v+=pStep) s += `<text x="${W-R+6}" y="${yp(v)+4}" fill="${css('--line-avg')}" style="fill:${css('--line-avg')}">${fmt(v,2)}</text>`;
+  s += `<text x="${W-R+6}" y="${T-1}" style="fill:${css('--line-avg')}">kr/kWh</text>`;
   months.forEach((m,i)=>{
     let acc=0; const x=L+i*bw+bw*0.15, w=bw*0.7;
     COMP.forEach(([k,v])=>{
@@ -131,15 +137,19 @@ function chart(months){
     });
     s += `<text x="${x+w/2}" y="${H-8}" text-anchor="middle">${m.month.slice(2)}</text>`;
   });
+  const pts = months.map((m,i)=>[L+i*bw+bw/2, yp(m.avg_sek_per_kwh)]);
+  s += `<polyline fill="none" stroke="${css('--line-avg')}" stroke-width="2.5" stroke-linejoin="round" points="${pts.map(p=>p.join(',')).join(' ')}"/>`;
+  pts.forEach(([x,y],i)=> s += `<circle data-i="${i}" cx="${x}" cy="${y}" r="4.5" fill="${css('--card')}" stroke="${css('--line-avg')}" stroke-width="2.5"/>`);
   s += `</svg>`;
   const el = document.getElementById("chart"); el.innerHTML = s;
   const tip = document.getElementById("tip");
-  el.querySelectorAll("rect").forEach(r => {
+  el.querySelectorAll("rect, circle").forEach(r => {
     r.addEventListener("mousemove", e => {
       const m = months[+r.dataset.i];
       tip.style.display="block"; tip.style.left=(e.clientX+12)+"px"; tip.style.top=(e.clientY+12)+"px";
       tip.innerHTML = `<b>${m.month}</b> — ${sek(m.total)} · ${fmt(m.kwh,1)} kWh<br>` +
-        COMP.map(([k,v,n]) => `<span style="color:${css(v)}">■</span> ${n}: ${fmt(m[k],0)} kr`).join("<br>");
+        COMP.map(([k,v,n]) => `<span style="color:${css(v)}">■</span> ${n}: ${fmt(m[k],0)} kr`).join("<br>") +
+        `<br><span style="color:${css('--line-avg')}">●</span> Avg price: ${fmt(m.avg_sek_per_kwh,2)} kr/kWh`;
     });
     r.addEventListener("mouseleave", () => tip.style.display="none");
   });
