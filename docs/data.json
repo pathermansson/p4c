@@ -1,5 +1,5 @@
 {
- "generated": "2026-11-20T05:30:14+00:00",
+ "generated": "2026-11-21T05:24:55+00:00",
  "currency": "SEK",
  "price_area": "SE3",
  "months": [
@@ -70,19 +70,31 @@
   },
   {
    "month": "2026-11",
-   "sessions": 4,
-   "kwh": 137.38,
-   "spot": 104.15,
-   "markup": 24.59,
-   "grid": 9.62,
-   "tax": 49.46,
-   "vat": 46.95,
-   "total": 234.76,
-   "avg_sek_per_kwh": 1.709,
+   "sessions": 5,
+   "kwh": 160.49,
+   "spot": 128.94,
+   "markup": 28.73,
+   "grid": 11.23,
+   "tax": 57.78,
+   "vat": 56.67,
+   "total": 283.35,
+   "avg_sek_per_kwh": 1.766,
    "unpriced_kwh": 0.0
   }
  ],
  "sessions": [
+  {
+   "start": "2026-11-20T16:39+01:00",
+   "end": "2026-11-21T03:41+01:00",
+   "spot": 24.793,
+   "markup": 4.138,
+   "grid": 1.618,
+   "tax": 8.321,
+   "vat": 9.718,
+   "kwh": 23.115,
+   "unpriced_kwh": 0.0,
+   "total": 48.588
+  },
   {
    "start": "2026-11-14T15:40+01:00",
    "end": "2026-11-15T13:49+01:00",
